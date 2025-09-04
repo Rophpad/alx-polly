@@ -27,18 +27,46 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Refresh session if expired - required for Server Components
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/auth')
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  // Security headers
+  supabaseResponse.headers.set('X-Frame-Options', 'DENY')
+  supabaseResponse.headers.set('X-Content-Type-Options', 'nosniff')
+  supabaseResponse.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  supabaseResponse.headers.set('X-XSS-Protection', '1; mode=block')
+
+  // Allow access to auth pages, public assets, and API routes
+  const publicPaths = [
+    '/login',
+    '/register', 
+    '/auth',
+    '/_next',
+    '/favicon.ico',
+    '/api'
+  ]
+  
+  const isPublicPath = publicPaths.some(path => 
+    request.nextUrl.pathname.startsWith(path)
+  )
+
+  // Allow access to static files
+  const isStaticFile = /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js)$/i.test(
+    request.nextUrl.pathname
+  )
+
+  if (isPublicPath || isStaticFile) {
+    return supabaseResponse
+  }
+
+  // Redirect unauthenticated users to login
+  if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    // Preserve the original URL as a redirect parameter
+    url.searchParams.set('redirect', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 

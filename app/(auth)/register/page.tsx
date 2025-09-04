@@ -11,17 +11,22 @@ import { register } from '@/app/lib/actions/auth-actions';
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
+    
     const formData = new FormData(event.currentTarget);
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
+    // Client-side password confirmation check
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
@@ -32,6 +37,9 @@ export default function RegisterPage() {
 
     if (result?.error) {
       setError(result.error);
+      setLoading(false);
+    } else if (result?.requiresVerification) {
+      setSuccess(result.message || 'Registration successful! Please verify your email.');
       setLoading(false);
     } else {
       window.location.href = '/polls'; // Full reload to pick up session
@@ -76,7 +84,21 @@ export default function RegisterPage() {
                 type="password" 
                 required
                 autoComplete="new-password"
+                onFocus={() => setShowPasswordRequirements(true)}
+                onBlur={() => setShowPasswordRequirements(false)}
               />
+              {showPasswordRequirements && (
+                <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded">
+                  <p className="font-medium mb-1">Password requirements:</p>
+                  <ul className="space-y-1">
+                    <li>• At least 8 characters long</li>
+                    <li>• One uppercase letter</li>
+                    <li>• One lowercase letter</li>
+                    <li>• One number</li>
+                    <li>• One special character (!@#$%^&*)</li>
+                  </ul>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -89,7 +111,18 @@ export default function RegisterPage() {
               />
             </div>
             {error && <p className="text-red-500 text-sm">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            {success && (
+              <div className="text-green-600 text-sm bg-green-50 p-3 rounded border border-green-200">
+                <p className="font-medium">Registration Successful!</p>
+                <p>{success}</p>
+                <p className="mt-2">
+                  <Link href="/login" className="text-blue-600 hover:underline">
+                    Return to login
+                  </Link>
+                </p>
+              </div>
+            )}
+            <Button type="submit" className="w-full" disabled={loading || !!success}>
               {loading ? 'Registering...' : 'Register'}
             </Button>
           </form>
